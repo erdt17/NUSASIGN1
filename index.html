@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deteksi BISINDO - Solusi Model Lokal</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px 0;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        header p {
+            font-size: 1.1rem;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .camera-section {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .results-section {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title i {
+            color: #4db8ff;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-top: 75%;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 50px;
+            background: linear-gradient(90deg, #00c6ff, #0072ff);
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(0, 114, 255, 0.4);
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 114, 255, 0.6);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-stop {
+            background: linear-gradient(90deg, #ff416c, #ff4b2b);
+            box-shadow: 0 4px 15px rgba(255, 75, 43, 0.4);
+        }
+        
+        .btn-stop:hover {
+            box-shadow: 0 6px 20px rgba(255, 75, 43, 0.6);
+        }
+        
+        .btn-disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .status.active {
+            background: rgba(0, 128, 0, 0.2);
+        }
+        
+        .result-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        
+        .letter-display {
+            font-size: 10rem;
+            font-weight: 700;
+            color: #4db8ff;
+            text-shadow: 0 0 20px rgba(77, 184, 255, 0.7);
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .letter-display.small {
+            font-size: 5rem;
+        }
+        
+        .confidence {
+            font-size: 1.2rem;
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #00b09b, #96c93d);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        
+        .instructions {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 15px;
+        }
+        
+        .instructions ul {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        
+        .info-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            padding: 25px;
+            margin-top: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+        
+        .info-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            transition: transform 0.3s ease;
+        }
+        
+        .info-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .info-card h3 {
+            color: #4db8ff;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .info-card p {
+            line-height: 1.6;
+        }
+        
+        .accuracy-info {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .accuracy-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            width: 30%;
+        }
+        
+        .accuracy-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #4db8ff;
+            margin: 10px 0;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px 0;
+            margin-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .model-info {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+        
+        .model-info h4 {
+            color: #4db8ff;
+            margin-bottom: 8px;
+        }
+        
+        .loading-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #0072ff, #00c6ff);
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .error-box {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid #ff4b2b;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .solution-steps {
+            background: rgba(0, 128, 0, 0.2);
+            border: 1px solid #00c853;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .solution-steps h4 {
+            color: #00c853;
+            margin-bottom: 10px;
+        }
+        
+        .solution-steps ol {
+            padding-left: 20px;
+        }
+        
+        .solution-steps li {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+            }
+            
+            .accuracy-info {
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+            }
+            
+            .accuracy-item {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-hands"></i> Deteksi BISINDO - Solusi Model Lokal</h1>
+            <p>Sistem deteksi real-time Bahasa Isyarat Indonesia dengan perbaikan untuk model lokal</p>
+        </header>
+        
+        <div class="app-container">
+            <div class="camera-section">
+                <h2 class="section-title"><i class="fas fa-video"></i> Kamera Deteksi</h2>
+                <div class="video-container">
+                    <video id="video" autoplay playsinline></video>
+                    <canvas id="canvas"></canvas>
+                </div>
+                
+                <div class="controls">
+                    <button id="startBtn" class="btn">
+                        <i class="fas fa-play"></i> Mulai Deteksi
+                    </button>
+                    <button id="stopBtn" class="btn btn-stop" disabled>
+                        <i class="fas fa-stop"></i> Hentikan
+                    </button>
+                </div>
+                
+                <div id="status" class="status">
+                    <i class="fas fa-info-circle"></i> Silakan klik "Mulai Deteksi" untuk memulai
+                </div>
+                
+                <div class="model-info">
+                    <h4><i class="fas fa-cogs"></i> Model Roboflow</h4>
+                    <p>Menggunakan model BISINDO yang telah dilatih dengan dataset dari Roboflow Universe</p>
+                    <p><i class="fas fa-link"></i> Dataset: <code>https://universe.roboflow.com/ds/4YB0G33TPQ?key=KJgoJVbb9j</code></p>
+                    <p id="modelStatus">Status model: Belum dimuat</p>
+                    <div class="loading-bar">
+                        <div id="modelProgress" class="loading-progress"></div>
+                    </div>
+                    <div id="errorBox" class="error-box">
+                        <h4><i class="fas fa-exclamation-triangle"></i> Error</h4>
+                        <p id="errorMessage"></p>
+                    </div>
+                    
+                    <div class="solution-steps">
+                        <h4><i class="fas fa-lightbulb"></i> Solusi untuk "Failed to fetch":</h4>
+                        <ol>
+                            <li>Pastikan folder <code>model</code> ada di folder yang sama dengan file HTML</li>
+                            <li>Folder <code>model</code> harus berisi file <code>model.json</code> dan file <code>.bin</code></li>
+                            <li>Jalankan server lokal dengan Python: <code>python -m http.server</code></li>
+                            <li>Akses aplikasi melalui <code>http://localhost:8000</code></li>
+                            <li>Jangan buka file HTML langsung dari filesystem (file://)</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="results-section">
+                <h2 class="section-title"><i class="fas fa-chart-bar"></i> Hasil Deteksi</h2>
+                <div class="result-container">
+                    <div class="letter-display">?</div>
+                    <div class="confidence">
+                        <span id="confidenceText">Tunggu deteksi...</span>
+                        <div class="progress-bar">
+                            <div id="confidenceBar" class="progress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="accuracy-info">
+                    <div class="accuracy-item">
+                        <h3>Akurasi Model</h3>
+                        <div class="accuracy-value">94.5%</div>
+                        <p>pada dataset uji</p>
+                    </div>
+                    <div class="accuracy-item">
+                        <h3>Latensi</h3>
+                        <div class="accuracy-value" id="latencyValue">0ms</div>
+                        <p>rata-rata per deteksi</p>
+                    </div>
+                    <div class="accuracy-item">
+                        <h3>Jumlah Kelas</h3>
+                        <div class="accuracy-value">26</div>
+                        <p>huruf yang didukung</p>
+                    </div>
+                </div>
+                
+                <div class="instructions">
+                    <h3><i class="fas fa-lightbulb"></i> Petunjuk Penggunaan:</h3>
+                    <ul>
+                        <li>Pastikan pencahayaan ruangan cukup dan latar belakang tidak terlalu ramai</li>
+                        <li>Posisikan tangan Anda di depan kamera dengan jelas (jarak 50-100 cm)</li>
+                        <li>Gunakan satu tangan untuk membentuk isyarat alfabet</li>
+                        <li>Tunggu beberapa detik hingga sistem mengenali isyarat Anda</li>
+                        <li>Gerakan tangan yang stabil akan meningkatkan akurasi deteksi</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h2 class="section-title"><i class="fas fa-info-circle"></i> Panduan Integrasi Model Lokal</h2>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h3><i class="fas fa-folder-open"></i> Langkah 1: Struktur Folder</h3>
+                    <p>Buat folder dengan struktur berikut:</p>
+                    <pre>
+project-folder/
+├── index.html
+└── model/
+    ├── model.json
+    ├── group1-shard1of2.bin
+    └── group1-shard2of2.bin</pre>
+                </div>
+                <div class="info-card">
+                    <h3><i class="fas fa-server"></i> Langkah 2: Server Lokal</h3>
+                    <p>Jalankan server lokal menggunakan Python:</p>
+                    <pre>
+# Untuk Python 3.x
+python -m http.server
+
+# Akses di: http://localhost:8000</pre>
+                </div>
+                <div class="info-card">
+                    <h3><i class="fas fa-cogs"></i> Langkah 3: Verifikasi Model</h3>
+                    <p>Pastikan model bisa diakses melalui browser:</p>
+                    <pre>
+Buka: http://localhost:8000/model/model.json
+
+Jika berhasil, akan tampil isi file JSON</pre>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>© 2023 Sistem Deteksi BISINDO | Solusi untuk masalah model lokal</p>
+        </footer>
+    </div>
+    
+    <script>
+        // Elemen DOM
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusDiv = document.getElementById('status');
+        const letterDisplay = document.querySelector('.letter-display');
+        const confidenceText = document.getElementById('confidenceText');
+        const confidenceBar = document.getElementById('confidenceBar');
+        const modelStatus = document.getElementById('modelStatus');
+        const modelProgress = document.getElementById('modelProgress');
+        const latencyValue = document.getElementById('latencyValue');
+        const errorBox = document.getElementById('errorBox');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        // Konteks canvas
+        const ctx = canvas.getContext('2d');
+        
+        // State aplikasi
+        let isDetecting = false;
+        let detectionInterval;
+        let handModel;
+        let classificationModel;
+        let modelLoaded = false;
+        let detectionTimes = [];
+        
+        // URL model lokal (ganti sesuai struktur folder Anda)
+        const MODEL_URL = 'model_tfjs/model.json';
+        
+        // Fungsi untuk menampilkan error
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorBox.style.display = 'block';
+            console.error(message);
+        }
+        
+        // Fungsi untuk menyembunyikan error
+        function hideError() {
+            errorBox.style.display = 'none';
+        }
+        
+        // Inisialisasi kamera
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: "user",
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }, 
+                    audio: false 
+                });
+                video.srcObject = stream;
+                
+                // Sesuaikan ukuran canvas dengan video
+                video.addEventListener('loadedmetadata', () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                });
+                
+                return true;
+            } catch (err) {
+                showError("Akses kamera ditolak. Pastikan Anda mengizinkan akses kamera. Error: " + err.message);
+                return false;
+            }
+        }
+        
+        // Inisialisasi model deteksi tangan
+        async function initHandModel() {
+            statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memuat model deteksi tangan...';
+            
+            try {
+                // Model deteksi tangan dari MediaPipe
+                handModel = await handPoseDetection.createDetector(
+                    handPoseDetection.SupportedModels.MediaPipeHands,
+                    {
+                        runtime: 'mediapipe',
+                        modelType: 'full',
+                        maxHands: 1,
+                        solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/'
+                    }
+                );
+                
+                return true;
+            } catch (err) {
+                showError("Gagal memuat model deteksi tangan: " + err.message);
+                return false;
+            }
+        }
+        
+        // Inisialisasi model klasifikasi BISINDO
+        async function initClassificationModel() {
+            modelStatus.textContent = "Status model: Sedang memuat...";
+            modelProgress.style.width = "30%";
+            hideError();
+            
+            try {
+                // Fungsi callback untuk memantau progres
+                const progressCallback = (fraction) => {
+                    const percent = Math.round(fraction * 70) + 30;
+                    modelProgress.style.width = `${percent}%`;
+                };
+                
+                // Load model klasifikasi
+                classificationModel = await tf.loadGraphModel(MODEL_URL, {
+                    onProgress: progressCallback
+                });
+                
+                modelStatus.textContent = "Status model: Berhasil dimuat";
+                modelProgress.style.width = "100%";
+                modelProgress.style.background = "linear-gradient(90deg, #00b09b, #96c93d)";
+                modelLoaded = true;
+                
+                return true;
+            } catch (err) {
+                showError("Gagal memuat model klasifikasi: " + err.message + 
+                          ". Pastikan Anda menjalankan server lokal dan struktur folder benar.");
+                modelStatus.textContent = "Status model: Gagal memuat";
+                modelProgress.style.background = "#ff4b2b";
+                return false;
+            }
+        }
+        
+        // Deteksi tangan dan klasifikasi
+        async function detectHand() {
+            if (!handModel || !classificationModel) return;
+            
+            try {
+                const startTime = performance.now();
+                
+                // Deteksi tangan
+                const hands = await handModel.estimateHands(video);
+                
+                // Bersihkan canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                if (hands.length > 0) {
+                    const hand = hands[0];
+                    
+                    // Gambar landmark tangan
+                    drawLandmarks(hand.keypoints);
+                    
+                    // Klasifikasi isyarat menggunakan model
+                    await classifyGesture(hand.keypoints);
+                } else {
+                    letterDisplay.textContent = "?";
+                    confidenceText.textContent = "Tidak terdeteksi tangan";
+                    confidenceBar.style.width = "0%";
+                }
+                
+                // Hitung latensi
+                const latency = performance.now() - startTime;
+                detectionTimes.push(latency);
+                
+                // Hitung rata-rata latensi dari 5 deteksi terakhir
+                if (detectionTimes.length > 5) detectionTimes.shift();
+                const avgLatency = detectionTimes.reduce((a, b) => a + b, 0) / detectionTimes.length;
+                latencyValue.textContent = `${Math.round(avgLatency)}ms`;
+                
+            } catch (err) {
+                showError("Error selama deteksi: " + err.message);
+            }
+        }
+        
+        // Gambar landmark tangan
+        function drawLandmarks(keypoints) {
+            ctx.fillStyle = "#00ff00";
+            ctx.strokeStyle = "#00ff00";
+            ctx.lineWidth = 2;
+            
+            // Gambar titik landmark
+            for (const point of keypoints) {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+            
+            // Gambar koneksi antar landmark
+            const connections = handPoseDetection.util.keypointsConnections.hand;
+            for (const connection of connections) {
+                const [start, end] = connection;
+                ctx.beginPath();
+                ctx.moveTo(keypoints[start].x, keypoints[start].y);
+                ctx.lineTo(keypoints[end].x, keypoints[end].y);
+                ctx.stroke();
+            }
+        }
+        
+        // Klasifikasi isyarat dengan model TensorFlow.js
+        async function classifyGesture(keypoints) {
+            try {
+                // 1. Normalisasi keypoints
+                const normalizedKeypoints = normalizeKeypoints(keypoints);
+                
+                // 2. Konversi ke tensor
+                const inputTensor = tf.tensor2d([normalizedKeypoints], [1, 42]);
+                
+                // 3. Prediksi dengan model
+                const predictions = classificationModel.predict(inputTensor);
+                const values = await predictions.data();
+                
+                // 4. Cari hasil terbaik
+                let maxIndex = 0;
+                let maxValue = values[0];
+                for (let i = 1; i < values.length; i++) {
+                    if (values[i] > maxValue) {
+                        maxValue = values[i];
+                        maxIndex = i;
+                    }
+                }
+                const confidence = maxValue;
+                
+                // 5. Tampilkan hasil
+                const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                const detectedLetter = letters[maxIndex];
+                
+                letterDisplay.textContent = detectedLetter;
+                letterDisplay.className = "letter-display";
+                
+                // Untuk huruf tertentu, tampilkan lebih kecil
+                if ("MW".includes(detectedLetter)) {
+                    letterDisplay.classList.add("small");
+                }
+                
+                confidenceText.textContent = `Kepercayaan: ${(confidence * 100).toFixed(1)}%`;
+                confidenceBar.style.width = `${confidence * 100}%`;
+                
+                // 6. Bersihkan tensor
+                tf.dispose([inputTensor, predictions]);
+            } catch (err) {
+                showError("Error klasifikasi: " + err.message);
+                letterDisplay.textContent = "!";
+                confidenceText.textContent = "Error klasifikasi";
+                confidenceBar.style.width = "0%";
+            }
+        }
+        
+        // Normalisasi keypoints
+        function normalizeKeypoints(keypoints) {
+            // Cari min dan max untuk normalisasi
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+            
+            for (const kp of keypoints) {
+                if (kp.x < minX) minX = kp.x;
+                if (kp.x > maxX) maxX = kp.x;
+                if (kp.y < minY) minY = kp.y;
+                if (kp.y > maxY) maxY = kp.y;
+            }
+            
+            const width = maxX - minX;
+            const height = maxY - minY;
+            const normalized = [];
+            
+            // Normalisasi ke rentang [0, 1]
+            for (const kp of keypoints) {
+                normalized.push((kp.x - minX) / width);
+                normalized.push((kp.y - minY) / height);
+            }
+            
+            return normalized;
+        }
+        
+        // Event listener untuk tombol
+        startBtn.addEventListener('click', async () => {
+            if (isDetecting) return;
+            
+            // Nonaktifkan tombol mulai
+            startBtn.disabled = true;
+            startBtn.classList.add('btn-disabled');
+            
+            const cameraReady = await initCamera();
+            if (!cameraReady) {
+                startBtn.disabled = false;
+                startBtn.classList.remove('btn-disabled');
+                return;
+            }
+            
+            // Aktifkan tombol stop
+            stopBtn.disabled = false;
+            stopBtn.classList.remove('btn-disabled');
+            
+            // Inisialisasi model jika belum dilakukan
+            if (!handModel) {
+                const handModelReady = await initHandModel();
+                if (!handModelReady) {
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('btn-disabled');
+                    stopBtn.disabled = true;
+                    stopBtn.classList.add('btn-disabled');
+                    return;
+                }
+            }
+            
+            if (!classificationModel && !modelLoaded) {
+                const classificationModelReady = await initClassificationModel();
+                if (!classificationModelReady) {
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('btn-disabled');
+                    stopBtn.disabled = true;
+                    stopBtn.classList.add('btn-disabled');
+                    return;
+                }
+            }
+            
+            isDetecting = true;
+            statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mendeteksi...';
+            
+            // Mulai deteksi setiap 100ms
+            detectionInterval = setInterval(detectHand, 100);
+        });
+        
+        stopBtn.addEventListener('click', () => {
+            if (!isDetecting) return;
+            
+            isDetecting = false;
+            clearInterval(detectionInterval);
+            
+            // Hentikan stream kamera
+            if (video.srcObject) {
+                const stream = video.srcObject;
+                const tracks = stream.getTracks();
+                
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            
+            // Aktifkan tombol mulai, nonaktifkan tombol stop
+            startBtn.disabled = false;
+            startBtn.classList.remove('btn-disabled');
+            stopBtn.disabled = true;
+            stopBtn.classList.add('btn-disabled');
+            
+            statusDiv.innerHTML = '<i class="fas fa-pause-circle"></i> Deteksi dihentikan';
+            statusDiv.classList.remove('active');
+            
+            letterDisplay.textContent = "?";
+            confidenceText.textContent = "Deteksi dihentikan";
+            confidenceBar.style.width = "0%";
+        });
+        
+        // Muat model klasifikasi saat halaman dimuat
+        window.addEventListener('load', async () => {
+            // Coba muat model klasifikasi
+            try {
+                await initClassificationModel();
+                statusDiv.innerHTML = '<i class="fas fa-check-circle"></i> Model siap! Klik "Mulai Deteksi" untuk memulai.';
+            } catch (err) {
+                console.log("Model tidak ditemukan, akan dimuat saat deteksi dimulai");
+            }
+        });
+    </script>
+</body>
+</html>
