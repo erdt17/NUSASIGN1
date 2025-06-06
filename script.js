@@ -8,6 +8,7 @@ const loading = document.getElementById('loading');
 // Load Graph Model (.json dari folder web_model)
 async function loadModel() {
   model = await tf.loadGraphModel('web_model/model.json');
+const label = await fetch('web_model/label_map.json').then(r => r.json());
   loading.innerText = '✅ Model loaded. Showing prediction...';
 }
 loadModel();
